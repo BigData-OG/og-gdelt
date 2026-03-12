@@ -5,7 +5,7 @@ locals {
 
 resource "google_storage_bucket" "main_data" {
   name                        = local.main_data_bucket_name
-  location                    = "US"
+  location                    = "US-WEST1"
   force_destroy               = true
   public_access_prevention    = "enforced"
   uniform_bucket_level_access = true
