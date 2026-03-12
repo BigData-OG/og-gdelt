@@ -1,7 +1,7 @@
 terraform {
   backend "gcs" {
-      bucket = "og-gdelt-terraform-state-bucket"
-      prefix = "terraform/state"
+    bucket = "og-gdelt-terraform-state-bucket"
+    prefix = "terraform/state"
   }
   required_providers {
     google = {
@@ -15,7 +15,7 @@ terraform {
 
 provider "google" {
   project = var.project_id
-  region = var.gcp_region
+  region  = var.gcp_region
 }
 
 
