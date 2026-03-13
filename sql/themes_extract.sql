@@ -40,4 +40,3 @@ GROUP BY
   company,
   theme_category,
   exact_theme
-;

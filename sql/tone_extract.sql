@@ -31,4 +31,4 @@ GROUP BY
   company
 ORDER BY 
   event_date DESC, 
-  company;
+  company
