@@ -3,9 +3,6 @@ resource "google_dataproc_cluster" "school_project_cluster" {
   name   = "${local.name_prefix}-cluster"
   region = var.gcp_region
 
-  # Applies the tags defined in locals.tf (Project, Environment, ManagedBy)
-  labels = local.common_tags
-
   cluster_config {
     # Uses the bucket created in gcs.tf for temporary staging
     staging_bucket = google_storage_bucket.main_data.name
