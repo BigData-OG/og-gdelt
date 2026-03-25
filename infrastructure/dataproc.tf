@@ -36,7 +36,7 @@ resource "google_dataproc_cluster" "school_project_cluster" {
     }
 
     worker_config {
-      num_instances = 1 # Initial number of worker nodes
+      num_instances = 2 # Initial number of worker nodes
       machine_type  = "c4-standard-4"
       disk_config {
         boot_disk_type    = "pd-standard"
