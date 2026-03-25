@@ -1,7 +1,7 @@
 # dataproc.tf
-resource "google_dataproc_autoscaling_policy" "school_project_autoscaling" {
+resource "google_dataproc_autoscaling_policy" "og_gdelt_autoscaling" {
   policy_id = "${local.name_prefix}-autoscaling-policy"
-  region    = var.gcp_region
+  location    = var.gcp_region
 
   worker_config {
     min_instances = 1
@@ -50,7 +50,7 @@ resource "google_dataproc_cluster" "school_project_cluster" {
     }
 
     autoscaling_config {
-      policy_uri = google_dataproc_autoscaling_policy.school_project_autoscaling.self_link
+      policy_uri = google_dataproc_autoscaling_policy.og_gdelt_autoscaling.name
     }
   }
 }
