@@ -1,4 +1,22 @@
 # dataproc.tf
+resource "google_dataproc_autoscaling_policy" "school_project_autoscaling" {
+  policy_id = "${local.name_prefix}-autoscaling-policy"
+  region    = var.gcp_region
+
+  worker_config {
+    min_instances = 1
+    max_instances = 5
+  }
+
+  basic_algorithm {
+    yarn_config {
+      graceful_decommission_timeout = "30s"
+      scale_up_factor               = 0.5
+      scale_down_factor             = 0.5
+    }
+  }
+}
+
 resource "google_dataproc_cluster" "school_project_cluster" {
   name   = "${local.name_prefix}-cluster"
   region = var.gcp_region
@@ -17,16 +35,22 @@ resource "google_dataproc_cluster" "school_project_cluster" {
       }
     }
 
-    # same master/worker node, disable if more than one node is required.
-    software_config {
-      override_properties = {
-        "dataproc:dataproc.allow.zero.workers" = "true"
+    worker_config {
+      num_instances = 1 # Initial number of worker nodes
+      machine_type  = "e2-standard-2"
+      disk_config {
+        boot_disk_type    = "pd-standard"
+        boot_disk_size_gb = 30
       }
     }
 
     # Links to the custom network created in network.tf
     gce_cluster_config {
       subnetwork = google_compute_subnetwork.custom_subnet.id
+    }
+
+    autoscaling_config {
+      policy_uri = google_dataproc_autoscaling_policy.school_project_autoscaling.self_link
     }
   }
 }
