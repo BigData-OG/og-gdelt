@@ -17,7 +17,7 @@ resource "google_dataproc_autoscaling_policy" "og_gdelt_autoscaling" {
   }
 }
 
-resource "google_dataproc_cluster" "school_project_cluster" {
+resource "google_dataproc_cluster" "og_gdelt_cluster" {
   name   = "${local.name_prefix}-cluster"
   region = var.gcp_region
 
@@ -30,16 +30,16 @@ resource "google_dataproc_cluster" "school_project_cluster" {
       num_instances = 1 # initial number of master nodes
       machine_type  = "c4-standard-4"
       disk_config {
-        boot_disk_type    = "pd-standard"
+        # boot_disk_type    = "pd-standard"
         boot_disk_size_gb = 30 # Keeps storage costs minimal (GBs)
       }
     }
 
     worker_config {
       num_instances = 2 # Initial number of worker nodes
-      machine_type  = "c4-standard-4"
+      machine_type  = "e2-standard-4"
       disk_config {
-        boot_disk_type    = "pd-standard"
+        # boot_disk_type    = "pd-standard"
         boot_disk_size_gb = 30
       }
     }
