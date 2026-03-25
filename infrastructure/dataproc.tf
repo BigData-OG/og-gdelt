@@ -27,17 +27,17 @@ resource "google_dataproc_cluster" "school_project_cluster" {
     temp_bucket    = google_storage_bucket.main_data.name
 
     master_config {
-      num_instances = 1
-      machine_type  = "e2-standard-2"
+      num_instances = 2 # 2 is the minimum
+      machine_type  = "c4-standard-4"
       disk_config {
         boot_disk_type    = "pd-standard"
-        boot_disk_size_gb = 30 # Keeps storage costs minimal
+        boot_disk_size_gb = 30 # Keeps storage costs minimal (GBs)
       }
     }
 
     worker_config {
       num_instances = 1 # Initial number of worker nodes
-      machine_type  = "e2-standard-2"
+      machine_type  = "c4-standard-4"
       disk_config {
         boot_disk_type    = "pd-standard"
         boot_disk_size_gb = 30
