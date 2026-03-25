@@ -31,19 +31,20 @@ resource "google_compute_firewall" "allow_internal" {
   source_ranges = [google_compute_subnetwork.custom_subnet.ip_cidr_range]
 }
 
+# removed because of risky external config.
 # Firewall rule to allow external access for SSH, RDP, and ICMP.
-resource "google_compute_firewall" "allow_external_access" {
-  name    = "${local.name_prefix}-allow-external"
-  network = google_compute_network.custom_vpc.name
-
-  allow {
-    protocol = "tcp"
-    ports    = ["22", "3389"] # SSH and RDP
-  }
-  allow {
-    protocol = "icmp"
-  }
-  # WARNING: This allows traffic from any source. For production, you should
-  # restrict this to a specific IP range, e.g., ["YOUR_IP_ADDRESS/32"].
-  source_ranges = ["0.0.0.0/0"]
-}
+# resource "google_compute_firewall" "allow_external_access" {
+#   name    = "${local.name_prefix}-allow-external"
+#   network = google_compute_network.custom_vpc.name
+#
+#   allow {
+#     protocol = "tcp"
+#     ports    = ["22", "3389"] # SSH and RDP
+#   }
+#   allow {
+#     protocol = "icmp"
+#   }
+#   # WARNING: This allows traffic from any source. For production, you should
+#   # restrict this to a specific IP range, e.g., ["YOUR_IP_ADDRESS/32"].
+#   source_ranges = ["0.0.0.0/0"]
+# }
