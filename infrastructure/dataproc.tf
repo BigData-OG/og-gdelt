@@ -28,9 +28,9 @@ resource "google_dataproc_cluster" "og_gdelt_cluster" {
 
     master_config {
       num_instances = 1 # initial number of master nodes
-      machine_type  = "c4-standard-4"
+      machine_type  = "e2-standard-4"
       disk_config {
-        # boot_disk_type    = "pd-standard"
+        # boot_disk_type    = "pd-ssd"
         boot_disk_size_gb = 30 # Keeps storage costs minimal (GBs)
       }
     }
@@ -39,7 +39,7 @@ resource "google_dataproc_cluster" "og_gdelt_cluster" {
       num_instances = 2 # Initial number of worker nodes
       machine_type  = "e2-standard-4"
       disk_config {
-        # boot_disk_type    = "pd-standard"
+        # boot_disk_type    = "pd-ssd"
         boot_disk_size_gb = 30
       }
     }
