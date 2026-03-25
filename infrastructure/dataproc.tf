@@ -4,7 +4,7 @@ resource "google_dataproc_autoscaling_policy" "og_gdelt_autoscaling" {
   location    = var.gcp_region
 
   worker_config {
-    min_instances = 1
+    min_instances = 2 # minimum 2 total nodes
     max_instances = 5
   }
 
@@ -27,7 +27,7 @@ resource "google_dataproc_cluster" "school_project_cluster" {
     temp_bucket    = google_storage_bucket.main_data.name
 
     master_config {
-      num_instances = 2 # 2 is the minimum
+      num_instances = 1 # initial number of master nodes
       machine_type  = "c4-standard-4"
       disk_config {
         boot_disk_type    = "pd-standard"
