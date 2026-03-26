@@ -30,8 +30,8 @@ resource "google_dataproc_workflow_template" "template" {
       cluster_name = local.cluster_name
       config {
         # Uses the bucket created in gcs.tf for temporary staging
-        staging_bucket = google_storage_bucket.main_data.name
-        temp_bucket    = google_storage_bucket.main_data.name
+        staging_bucket = google_storage_bucket.dataproc_logs.name
+        temp_bucket    = google_storage_bucket.dataproc_logs.name
 
         master_config {
           num_instances = 1 # initial number of master nodes
