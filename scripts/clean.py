@@ -66,7 +66,6 @@ def main():
             company,
             ticker,
             theme_category,
-            exact_theme,
             daily_theme_mentions,
             daily_theme_avg_tone,
             LAST_VALUE(Open IGNORE NULLS) OVER (
@@ -90,24 +89,33 @@ def main():
                 ROWS BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW
             ) as Volume
         FROM `gdelt-stock-sentiment-analysis.gdelt_analysis.themes_with_prices`
+    ),
+    next_day_prices AS (
+        SELECT
+            Ticker as ticker,
+            Date as event_date,
+            LEAD(Close) OVER (PARTITION BY Ticker ORDER BY Date) as next_day_close
+        FROM `gdelt-stock-sentiment-analysis.gdelt_analysis.stock_prices`
     )
     SELECT 
-        event_date,
-        company,
-        ticker,
-        theme_category,
-        exact_theme,
-        daily_theme_mentions,
-        daily_theme_avg_tone,
-        Open,
-        High,
-        Low,
-        Close,
-        Volume,
-        LEAD(Close) OVER (PARTITION BY ticker ORDER BY event_date) as next_day_close
-    FROM filled_prices
-    WHERE Close IS NOT NULL
-    ORDER BY ticker, event_date
+        fp.event_date,
+        fp.company,
+        fp.ticker,
+        fp.theme_category,
+        fp.daily_theme_mentions,
+        fp.daily_theme_avg_tone,
+        fp.Open,
+        fp.High,
+        fp.Low,
+        fp.Close,
+        fp.Volume,
+        ndp.next_day_close
+    FROM filled_prices fp
+    LEFT JOIN next_day_prices ndp
+        ON fp.ticker = ndp.ticker 
+        AND fp.event_date = ndp.event_date
+    WHERE fp.Close IS NOT NULL
+    ORDER BY fp.ticker, fp.event_date
     """
     
     client.query(clean_themes_query).result()
@@ -135,7 +143,7 @@ def main():
     """
     client.query(export_clean_themes).result()
     
-    #Summary
+    #Summary for tone
     summary_query = """
     SELECT 
         'combined_data_clean' as table_name,
@@ -153,6 +161,21 @@ def main():
         print(f"  Missing next_day_close: {row.missing_next_day_close}")
         print(f"  Avg tone: {row.avg_tone}")
         print(f"  Stddev tone: {row.stddev_tone}")
+
+    #Summary for Themes
+    themes_summary_query = """
+    SELECT 
+        'themes_with_prices_clean' as table_name,
+        COUNT(*) as total_rows,
+        COUNTIF(next_day_close IS NULL) as missing_next_day_close
+    FROM `gdelt-stock-sentiment-analysis.gdelt_analysis.themes_with_prices_clean`
+    """
+ 
+    result = client.query(themes_summary_query).result()
+    for row in result:
+        print(f"\nTable: {row.table_name}")
+        print(f"  Total rows: {row.total_rows}")
+        print(f"  Missing next_day_close: {row.missing_next_day_close}")
  
 if __name__ == '__main__':
     main()

@@ -26,8 +26,7 @@ WITH filtered AS (
 SELECT 
   event_date,
   company,
-  SPLIT(individual_theme, '_')[OFFSET(0)] as theme_category,
-  individual_theme as exact_theme,
+  SPLIT(SPLIT(individual_theme, '_')[OFFSET(0)], ',')[OFFSET(0)] as theme_category,
   COUNT(DISTINCT DocumentIdentifier) as daily_theme_mentions,
   AVG(primary_tone) as daily_theme_avg_tone
 FROM 
@@ -38,5 +37,8 @@ WHERE
 GROUP BY 
   event_date,
   company,
-  theme_category,
-  exact_theme
+  theme_category
+ORDER BY 
+  event_date DESC,
+  company,
+  theme_category

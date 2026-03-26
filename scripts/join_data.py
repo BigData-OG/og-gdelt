@@ -83,7 +83,6 @@ def main():
             WHEN th.company = 'Aramco' THEN '2222.SR'
         END as ticker,
         th.theme_category,
-        th.exact_theme,
         th.daily_theme_mentions,
         th.daily_theme_avg_tone,
         s.Open,
@@ -105,7 +104,7 @@ def main():
     # Export
     export_tone_query = """
     EXPORT DATA OPTIONS(
-      uri='gs://og-gdelt-main-data-dev/analysis_ready/combined_data_*.csv',
+      uri='gs://og-gdelt-main-data-dev/joined_data/combined_data_*.csv',
       format='CSV',
       overwrite=true,
       header=true
@@ -116,7 +115,7 @@ def main():
     
     export_themes_query = """
     EXPORT DATA OPTIONS(
-      uri='gs://og-gdelt-main-data-dev/analysis_ready/themes_with_prices_*.csv',
+      uri='gs://og-gdelt-main-data-dev/joined_data/themes_with_prices_*.csv',
       format='CSV',
       overwrite=true,
       header=true
