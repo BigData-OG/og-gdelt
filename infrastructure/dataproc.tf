@@ -66,9 +66,9 @@ resource "google_dataproc_workflow_template" "template" {
     pyspark_job {
       main_python_file_uri = "gs://${google_storage_bucket.main_data.name}/scripts/training.py"
       args = [
-        google_storage_bucket.main_data.url, # Input data path
+        google_storage_bucket.main_data.name, # Input data path
         var.training_data_path, # Training data path within the bucket
-        "${google_storage_bucket.main_data.url}/regression_models" # Output path for models
+        "regression_models" # Output path for models
       ]
     }
     

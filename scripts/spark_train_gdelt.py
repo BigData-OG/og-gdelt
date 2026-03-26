@@ -246,9 +246,10 @@ class RegressionTrainer:
                 logger.info("\n" + "="*60)
                 logger.info("SAVING MODELS")
                 logger.info("="*60)
-                
                 if output_path is None:
                     output_path = f"{self.gcs_path}/regression_models"
+                else:
+                    output_path = f"{self.gcs_path}/{output_path}"
                 
                 for model_name, model in models.items():
                     try:
