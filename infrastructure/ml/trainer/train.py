@@ -12,7 +12,7 @@ def load_config():
     return config
 
 def main():
-    print('starting traininggggsg')
+    print('starting traininggggsgggghhdd')
     config = load_config()
     output_path = os.environ['AIP_MODEL_DIR']
     data_path = config.get("data_path")
