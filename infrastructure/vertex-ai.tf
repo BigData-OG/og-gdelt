@@ -7,7 +7,7 @@ resource "local_file" "dynamic_ml_config" {
   filename = "${path.module}/ml/trainer/config.json"
 }
 
-resource "null_resource" "package_code" {
+resource "null_resource" "packaged_ml_code" {
   depends_on = [local_file.dynamic_ml_config]
 
   provisioner "local-exec" {
@@ -17,7 +17,7 @@ resource "null_resource" "package_code" {
 
 
 resource "google_storage_bucket_object" "vertex_ai_model_training_package" {
-  depends_on = [null_resource.package_code, google_storage_bucket.main_data]
+  depends_on = [null_resource.packaged_ml_code, google_storage_bucket.main_data]
   name   = "scripts/training_package.tar.gz"
   source = "${path.module}/dist/gdelt_trainer-0.1.tar.gz"
   bucket = google_storage_bucket.main_data.name
