@@ -13,7 +13,7 @@ resource "null_resource" "packaged_ml_code" {
     key = filemd5("${path.module}/ml/trainer/train.py") # Re-run if the training script changes
   }
   provisioner "local-exec" {
-    command = "cd ${path.module} && python setup.py sdist --formats=gztar"
+    command = "cd ${path.module}/ml && python setup.py sdist --formats=gztar"
   }
 }
 
