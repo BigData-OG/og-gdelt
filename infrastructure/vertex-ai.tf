@@ -9,7 +9,9 @@ resource "local_file" "dynamic_ml_config" {
 
 resource "null_resource" "packaged_ml_code" {
   depends_on = [local_file.dynamic_ml_config]
-
+  triggers = {
+    file_hash = filesha256("${path.module}/ml/trainer/train.py")
+  }
   provisioner "local-exec" {
     command = "python ${path.module}/ml/setup.py sdist --formats=gztar"
   }
