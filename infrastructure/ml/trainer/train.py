@@ -4,6 +4,7 @@ from sklearn.ensemble import RandomForestRegressor
 from sklearn.metrics import mean_absolute_error
 import json
 import joblib
+from google.cloud import storage
 
 def load_config():
     config_path = os.path.join(os.path.dirname(__file__), 'config.json')
@@ -11,15 +12,30 @@ def load_config():
         config = json.load(f)
     return config
 
+def save_model(model, project_id, gcs_path):
+    local_path = "model.joblib"
+    joblib.dump(model, local_path)
+    path_parts = gcs_path.replace("gs://", "").split("/")
+    bucket_name = path_parts[0]
+    prefix = "/".join(path_parts[1:])
+    storage_client = storage.Client(project=project_id)
+    bucket = storage_client.bucket(bucket_name)
+        
+    if not prefix.endswith("/"):
+        prefix += "/"
+    blob = bucket.blob(f"{prefix}{local_path}")
+    blob.upload_from_filename(local_path)
+    print(f"Model successfully uploaded to {gcs_path}{local_path}")
+
 def main():
     print('starting traininggggsgggghhdd')
     config = load_config()
+    project_id = os.environ.get("project_id")
     output_path = os.environ['AIP_MODEL_DIR']
     data_path = config.get("data_path")
     bucket = config.get("bucket")
-    df = pd.read_csv(f"/gcs/{bucket}/{data_path}")
 
-    # drop nulls
+    df = pd.read_csv(f"/gcs/{bucket}/{data_path}")
     df = df.dropna()
 
     # features
@@ -65,7 +81,9 @@ def main():
         "baseline_mae": baseline_mae
     }
     print("\nFinal Results:", results)
-    joblib.dump(model, output_path)
+    save_model(model, project_id, output_path)
+
+
 
 if __name__ == "__main__":
     main()
