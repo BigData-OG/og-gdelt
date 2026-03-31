@@ -8,7 +8,7 @@ import pandas as pd
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel, Field
 from google.cloud import aiplatform, storage
-
+from fastapi import FastAPI, APIRouter, HTTPException
 
 # from api.services.data_extractor import DataExtractor
 from api.services import DataExtractor
