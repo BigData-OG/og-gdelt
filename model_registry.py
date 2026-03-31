@@ -26,4 +26,6 @@ def get_models_on_vertex_ai(project: str = PROJECT_ID, region: str = REGION):
         model_id = model.resource_name.split("/")[-1]
         model_dict[model_id] = model.display_name
 
+    # sample output
+    # {'8540139909401280512': 'amazon-gdelt-stock-pred'}
     return model_dict
