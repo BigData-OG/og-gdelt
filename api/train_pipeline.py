@@ -37,13 +37,6 @@ MACHINE_TYPE = "e2-standard-4"
 # Service account
 SERVICE_ACCOUNT = f"{PROJECT_NUMBER}-compute@developer.gserviceaccount.com"
  
-# --- Ticker to company name mapping (for output folder naming) ---
-TICKER_DISPLAY_NAMES = {
-    "AMZN": "amazon",
-    "PFE": "pfizer",
-    "2222.SR": "aramco",
-}
- 
  
 def submit_training_job(
     ticker: str,
@@ -52,20 +45,18 @@ def submit_training_job(
     """
     Submit a Vertex AI custom training job for a given ticker.
  
-    Uses the low-level API to submit the job and return immediately
-    without waiting for completion.
- 
     Args:
-        ticker: Stock ticker symbol (e.g., "AMZN", "PFE", "2222.SR")
+        ticker: Stock ticker symbol (e.g., "AMZN", "TSLA", "GOOGL")
         input_data_path: Path to training data inside the GCS bucket
  
     Returns:
         dict with job_id, job_name, and status
     """
  
-    company_name = TICKER_DISPLAY_NAMES.get(ticker.upper(), ticker.lower())
-    display_name = f"train-{company_name}-{ticker.upper()}-custom-job"
-    output_dir = f"gs://{BUCKET_NAME}/train_results/vertex/model/{company_name}/"
+    # Clean ticker for use in names (replace dots/special chars)
+    safe_name = ticker.lower().replace(".", "-").replace("/", "-")
+    display_name = f"train-{safe_name}-custom-job"
+    output_dir = f"gs://{BUCKET_NAME}/train_results/vertex/model/{safe_name}/"
     training_args = [ticker, BUCKET_NAME, input_data_path]
  
     logger.info(f"Submitting training job: {display_name}")
@@ -74,7 +65,6 @@ def submit_training_job(
     logger.info(f"  Output dir: {output_dir}")
  
     try:
-        # Use the low-level API for clean async submission
         client = JobServiceClient(
             client_options={"api_endpoint": f"{REGION}-aiplatform.googleapis.com"}
         )
