@@ -25,10 +25,14 @@ resource "google_cloud_run_v2_service" "gdelt_api" {
     containers {
       image = data.google_artifact_registry_docker_image.gdelt_api.self_link
       resources {
+        cpu_idle = true
         limits = {
           cpu    = "2"
           memory = "1024Mi"
         }
+      }
+      ports {
+        container_port = 80
       }
     }
   }
