@@ -31,7 +31,7 @@ def save_model(artifact, model_name, project_id, gcs_path):
 
 
 def train(ticker, bucket, input_path):
-    print('starting training')
+    print('starting trainings')
     project_id = os.environ.get("CLOUD_ML_PROJECT_ID")
 
     df = pd.read_csv(f"/gcs/{bucket}/{input_path}")
