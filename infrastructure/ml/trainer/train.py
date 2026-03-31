@@ -15,7 +15,7 @@ def load_config():
     return config
 
 def save_model(artifact, model_name, project_id, gcs_path):
-    local_path = f"{model_name}.joblib"
+    local_path = "model.joblib"
     joblib.dump(artifact, local_path)
     path_parts = gcs_path.replace("gs://", "").split("/")
     bucket_name = path_parts[0]
