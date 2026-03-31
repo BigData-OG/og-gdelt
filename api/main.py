@@ -14,7 +14,7 @@ from google.cloud import aiplatform, storage
 from api.services import DataExtractor
 
 logger = logging.getLogger(__name__)
-
+app = FastAPI()
 router = APIRouter(prefix="", tags=["predict"])
 
 PROJECT_ID = "gdelt-stock-sentiment-analysis"
@@ -243,3 +243,5 @@ def predict(req: PredictRequest) -> PredictResponse:
         latest_event_date=latest_date,
         features_used=instance,
     )
+
+app.include_router(router)
