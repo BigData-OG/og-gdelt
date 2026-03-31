@@ -26,14 +26,7 @@ MODEL_REGISTRY: Dict[str, Dict[str, str]] = {
     "PFE": {"endpoint_id": "REPLACE_WITH_PFE_ENDPOINT_ID"},
     "2222.SR": {"endpoint_id": "REPLACE_WITH_2222SR_ENDPOINT_ID"},
 }
-if not endpoint_id:
-    return {
-        "company_name": request.company_name,
-        "ticker": ticker,
-        "status": "training_needed",
-        "processed_path": training_path,
-        "message": "No endpoint found. Training required."
-    }
+
 COMPANY_TO_TICKER = {
     "amazon": "AMZN",
     "pfizer": "PFE",
