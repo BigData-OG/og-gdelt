@@ -169,7 +169,7 @@ def health() -> Dict[str, str]:
 @router.get("/models/{company_name}")
 def model_status(company_name: str) -> Dict[str, Any]:
     ticker = resolve_ticker(company_name)
-    model_id = model_repository.get_model_id_by_company_name(company_name) if ticker else None
+    model_id = model_repository.get_model_id_by_ticker(company_name) if ticker else None
     if not ticker:
         return {
             "company_name": company_name,
@@ -199,7 +199,7 @@ def predict(req: PredictRequest) -> PredictResponse:
         )
 
     # if no model / endpoint, return training_needed
-    endpoint_info = model_repository.get_model_id_by_company_name(ticker)
+    endpoint_info = model_repository.get_model_id_by_ticker(ticker)
     endpoint_id = endpoint_info if endpoint_info else None
 
     if not endpoint_id or "REPLACE" in endpoint_id:

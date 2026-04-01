@@ -104,7 +104,7 @@ async def train_model(request: TrainRequest, background_tasks: BackgroundTasks):
     company_name = request.company_name
     firestore_client = firestore.Client(project=PROJECT_ID,database=os.environ.get("FIRESTORE_DB_NAME", "og-gdelt-dev-firestore-db"))
     repo = ModelRepository(firestore_client)
-    model_endpoint = repo.get_model_id_by_company_name(company_name)
+    model_endpoint = repo.get_model_id_by_ticker(ticker)
     if model_endpoint is not None:
         return ModelAlreadyExistResponse(
             status="model_exists",
