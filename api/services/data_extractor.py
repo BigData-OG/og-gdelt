@@ -78,6 +78,79 @@ class DataExtractor:
             logger.error(f"Error extracting data for {ticker}: {e}")
             raise
     
+    def get_latest_features(self, company_name: str, ticker: str) -> dict:
+        """
+        Get only the latest day's features for prediction (fast).
+        """
+        logger.info(f"Getting latest features for {company_name} ({ticker})")
+    
+        # Get today's data only (1 day)
+        end_date = datetime.now()
+        start_date = end_date - timedelta(days=7)  # 7 days buffer
+    
+        try:
+            gdelt_query = f"""
+            SELECT 
+                DATE(PARSE_TIMESTAMP('%Y%m%d%H%M%S', CAST(DATE AS STRING))) as event_date,
+                COUNT(DISTINCT DocumentIdentifier) as daily_exposure_count,
+                AVG(CAST(SPLIT(V2Tone, ',')[OFFSET(0)] AS FLOAT64)) as daily_avg_tone
+            FROM `gdelt-bq.gdeltv2.gkg_partitioned`
+                WHERE _PARTITIONDATE BETWEEN '{start_date.strftime('%Y-%m-%d')}' AND '{end_date.strftime('%Y-%m-%d')}'
+              AND REGEXP_CONTAINS(V2Organizations, r'(?i)\\b{company_name.lower()}|{ticker.lower()}\\b')
+            GROUP BY event_date
+            ORDER BY event_date DESC
+            LIMIT 1
+            """
+        
+            gdelt_result = self.bq_client.query(gdelt_query).result()
+            gdelt_row = list(gdelt_result)[0]
+        
+        # Get latest stock price from yFinance
+            stock_data = yf.download(
+                ticker,
+                start=start_date.strftime('%Y-%m-%d'),
+                end=end_date.strftime('%Y-%m-%d'),
+                progress=False
+            )
+        
+            if stock_data.empty:
+                raise ValueError(f"No recent stock data for {ticker}")
+        
+            # Get last row
+            latest_stock = stock_data.iloc[-1]
+        
+            # calc features
+            if len(stock_data) >= 2:
+                prev_close = stock_data.iloc[-2]['Close']
+                daily_return_pct = ((latest_stock['Close'] - prev_close) / prev_close) * 100
+            else:
+                daily_return_pct = 0.0
+        
+            # Build feature dict
+            features = {
+                'daily_exposure_count': float(gdelt_row.daily_exposure_count),
+                'daily_avg_tone': float(gdelt_row.daily_avg_tone),
+                'Open': float(latest_stock['Open']),
+                'High': float(latest_stock['High']),
+                'Low': float(latest_stock['Low']),
+                'Close': float(latest_stock['Close']),
+                'Volume': float(latest_stock['Volume']),
+                'daily_return_pct': float(daily_return_pct),
+                'day_of_week': int(stock_data.index[-1].dayofweek)
+            }
+        
+            return {
+                'status': 'success',
+                'ticker': ticker,
+                'company_name': company_name,
+                'event_date': gdelt_row.event_date.strftime('%Y-%m-%d'),
+                'features': features
+            }
+        
+        except Exception as e:
+            logger.error(f"Error getting latest features for {ticker}: {e}")
+            raise
+
     # === helper functions, DONT CALL THE FUNCTIONS BELOW ===
     
     def _get_gcs_paths(self, ticker: str) -> dict:
