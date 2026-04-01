@@ -10,8 +10,11 @@ from pydantic import BaseModel, Field
 from google.cloud import aiplatform, storage
 from fastapi import FastAPI, APIRouter, HTTPException
 
+# to pull in train routes
+from train_routes import router as train_router
+
 # from api.services.data_extractor import DataExtractor
-from api.services import DataExtractor
+from services import DataExtractor
 
 logger = logging.getLogger(__name__)
 app = FastAPI()
@@ -286,3 +289,4 @@ def predict(req: PredictRequest) -> PredictResponse:
         features_used=instance,
     )
 app.include_router(router)
+app.include_router(train_router)
