@@ -106,10 +106,15 @@ async def train_model(request: TrainRequest, background_tasks: BackgroundTasks):
     repo = ModelRepository(firestore_client)
     model_endpoint = repo.get_model_id_by_ticker(ticker)
     if model_endpoint is not None:
-        return ModelAlreadyExistResponse(
+        return TrainResponse(
             status="model_exists",
-            message=f"A model for '{company_name}' already exists at endpoint '{model_endpoint}'. "
-                    f"Please delete the existing model before training a new one."
+            job_name="",
+            display_name="",
+            ticker="",
+            data_path="", 
+            output_dir="",
+            extraction_summary=None,
+            deployment= model_endpoint
         )
     logger.info(f"=== Training pipeline started for {company_name} ({ticker}) ===")
  
