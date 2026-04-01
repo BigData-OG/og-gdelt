@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import logging
 from io import StringIO
+import os
 from typing import Any, Dict, Optional
 
 import pandas as pd
@@ -20,8 +21,9 @@ logger = logging.getLogger(__name__)
 app = FastAPI()
 router = APIRouter(prefix="", tags=["predict"])
 
-PROJECT_ID = "gdelt-stock-sentiment-analysis"
-REGION = "us-central1"
+PROJECT_ID = os.environ.get("PROJECT_ID", "gdelt-stock-sentiment-analysis")
+REGION = os.environ.get("GCP_REGION", "us-west1")
+BUCKET =    os.environ.get("BUCKET_NAME", "og-gdelt-main-data-dev")
 
 # endpoints
 MODEL_REGISTRY: Dict[str, Dict[str, str]] = {
@@ -218,7 +220,7 @@ def predict(req: PredictRequest) -> PredictResponse:
 
     # get one latest feature row for inference
     try:
-        extractor = DataExtractor()
+        extractor = DataExtractor(BUCKET, PROJECT_ID)
         latest_data = extractor.get_latest_features(
             company_name=company_name,
             ticker=ticker
