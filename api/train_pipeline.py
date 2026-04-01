@@ -234,7 +234,7 @@ def get_or_create_endpoint(ticker: str) -> aiplatform.Endpoint:
     """
     Find an existing endpoint for this ticker, or create a new one.
     
-    Your teammate's convention: one endpoint per company, named after
+    Previous convention: one endpoint per company, named after
     the ticker (e.g., "aramco", "amzn", "tsla").
     
     Args:
@@ -266,7 +266,7 @@ def get_or_create_endpoint(ticker: str) -> aiplatform.Endpoint:
     logger.info(f"Creating new endpoint: {safe_name}")
     endpoint = aiplatform.Endpoint.create(
         display_name=safe_name,
-        # Standard access, no dedicated DNS (matching your teammate's config)
+        # Standard access, no dedicated DNS (matching previous config config)
     )
  
     logger.info(f"Endpoint created: {endpoint.resource_name}")
@@ -287,7 +287,7 @@ def deploy_model_to_endpoint(
     THIS IS THE SLOW STEP (~15-20 minutes). Google is provisioning VMs
     to run the prediction server.
     
-    Settings match your teammate's aramco deployment:
+    Settings match your previous deployment:
     - n1-standard-4 machine
     - Min 1 replica, Max 2 replicas
     - 100% traffic
