@@ -8,6 +8,7 @@ for stock price prediction using GDELT news sentiment.
 from fastapi import FastAPI, HTTPException
 from pydantic import BaseModel
 from typing import Optional
+from google.cloud import storage as gcs_storage
 import logging
  
 from train_pipeline import submit_training_job
@@ -19,8 +20,10 @@ logger = logging.getLogger(__name__)
  
 app = FastAPI(title="GDELT Stock Prediction API")
  
-# Initialize the data extractor
+# Initialize the data extractor and GCS client
 extractor = DataExtractor()
+storage_client = gcs_storage.Client()
+BUCKET_NAME = "og-gdelt-main-data-dev"
  
  
 # --- Request/Response models ---
@@ -42,6 +45,50 @@ class TrainResponse(BaseModel):
     data_path: str
     output_dir: str
     extraction_summary: Optional[dict] = None
+ 
+ 
+# --- Helper functions ---
+ 
+def resolve_gcs_wildcard(path_with_wildcard: str) -> str:
+    """
+    Resolve a GCS wildcard path to an actual filename.
+ 
+    BigQuery exports use wildcards (e.g., training_data*.csv) which get
+    replaced with shard numbers (e.g., training_data000000000000.csv).
+    The training script needs the exact filename, not the wildcard.
+ 
+    This function lists files in GCS matching the prefix and returns
+    the first matching CSV file.
+ 
+    Args:
+        path_with_wildcard: Path relative to bucket, e.g.,
+                            "companies/TSLA/processed/training_data*.csv"
+ 
+    Returns:
+        Exact path like "companies/TSLA/processed/training_data000000000000.csv"
+    """
+    if "*" not in path_with_wildcard:
+        return path_with_wildcard
+ 
+    # Strip the wildcard to get the prefix
+    # "companies/TSLA/processed/training_data*.csv" -> "companies/TSLA/processed/training_data"
+    prefix = path_with_wildcard.split("*")[0]
+ 
+    # List all files in GCS that start with this prefix
+    bucket = storage_client.bucket(BUCKET_NAME)
+    blobs = list(bucket.list_blobs(prefix=prefix))
+ 
+    # Filter to just CSV files
+    csv_files = [blob.name for blob in blobs if blob.name.endswith(".csv")]
+ 
+    if not csv_files:
+        raise ValueError(
+            f"No data files found matching '{path_with_wildcard}' in bucket '{BUCKET_NAME}'. "
+            f"Data extraction may have failed."
+        )
+ 
+    logger.info(f"  Resolved wildcard: found {len(csv_files)} file(s), using: {csv_files[0]}")
+    return csv_files[0]
  
  
 # --- Endpoints ---
@@ -92,16 +139,19 @@ async def train_model(request: TrainRequest):
             logger.info(f"  Data extracted to: {data_path}")
         else:
             # Use existing processed data
-            data_path = f"companies/{ticker}/processed/training_data*.csv"
+            data_path = f"gs://{BUCKET_NAME}/companies/{ticker}/processed/training_data*.csv"
             logger.info(f"  Skipping extraction, using existing data at: {data_path}")
  
-        # The training script expects a path relative to the bucket (no gs:// prefix)
-        # Strip the gs://bucket_name/ prefix if present
-        bucket_prefix = "gs://og-gdelt-main-data-dev/"
+        # Strip the gs://bucket_name/ prefix to get relative path
+        bucket_prefix = f"gs://{BUCKET_NAME}/"
         if data_path.startswith(bucket_prefix):
             relative_path = data_path[len(bucket_prefix):]
         else:
             relative_path = data_path
+ 
+        # Resolve wildcard to actual filename
+        # BigQuery exports use wildcards but pd.read_csv() needs exact filenames
+        relative_path = resolve_gcs_wildcard(relative_path)
  
         # Step 2: Submit training job to Vertex AI
         logger.info(f"Step 2: Submitting Vertex AI training job for {ticker}")
@@ -129,4 +179,3 @@ async def train_model(request: TrainRequest):
             status_code=500,
             detail=f"Training pipeline failed: {str(e)}",
         )
- 
