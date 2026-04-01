@@ -8,6 +8,7 @@ This module handles:
 4. Creating endpoints and deploying models for inference
 """
  
+import os
 from google.cloud.aiplatform_v1 import (
     JobServiceClient,
     CustomJob,
@@ -17,9 +18,11 @@ from google.cloud.aiplatform_v1 import (
     MachineSpec,
     DiskSpec,
 )
-from google.cloud import aiplatform
+from google.cloud import aiplatform, firestore
 import logging
 import time
+
+from api.services.model_repository import ModelRepository
  
 logger = logging.getLogger(__name__)
  
@@ -386,7 +389,9 @@ def train_and_deploy_background(job_name: str, ticker: str):
         }
  
         deploy_model_to_endpoint(model, endpoint)
- 
+        firestore_client = firestore.Client(project=PROJECT_ID,database=os.environ.get("FIRESTORE_DB_NAME", "og-gdelt-dev-firestore-db"))
+        model_repository = ModelRepository(firestore_client)
+        model_repository.save_model_id(ticker, endpoint.resource_name)
         # --- Done! ---
         job_tracker[safe_name] = {
             "status": "deployed",

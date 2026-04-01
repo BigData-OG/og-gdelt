@@ -4,27 +4,31 @@ Training routes - /train and /train/status endpoints.
 Uses APIRouter so it can be plugged into the main FastAPI app in main.py.
 """
  
+import os
 from fastapi import APIRouter, HTTPException, BackgroundTasks
 from pydantic import BaseModel
 from typing import Optional
 from google.cloud import storage as gcs_storage
+
 import logging
  
-from train_pipeline import (
+from api.train_pipeline import (
     submit_training_job,
     train_and_deploy_background,
     job_tracker,
 )
-from services import DataExtractor
+from api.services import DataExtractor
  
 logger = logging.getLogger(__name__)
  
 router = APIRouter(prefix="", tags=["train"])
- 
+PROJECT_ID = os.environ.get("PROJECT_ID", "gdelt-stock-sentiment-analysis")
+REGION = os.environ.get("GCP_REGION", "us-west1")
+BUCKET_NAME =    os.environ.get("BUCKET_NAME", "og-gdelt-main-data-dev")
 # Initialize the data extractor and GCS client
-extractor = DataExtractor()
-storage_client = gcs_storage.Client()
-BUCKET_NAME = "og-gdelt-main-data-dev"
+extractor = DataExtractor(bucket=BUCKET_NAME, project_id=PROJECT_ID)
+storage_client = gcs_storage.Client(project=PROJECT_ID)
+
  
  
 # --- Request/Response models ---

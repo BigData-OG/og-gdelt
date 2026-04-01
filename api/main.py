@@ -8,14 +8,15 @@ from typing import Any, Dict, Optional
 import pandas as pd
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel, Field
-from google.cloud import aiplatform, storage
+from google.cloud import aiplatform, storage, firestore
 from fastapi import FastAPI, APIRouter, HTTPException
 
 # to pull in train routes
-from train_routes import router as train_router
+from api.train_routes import router as train_router
 
 # from api.services.data_extractor import DataExtractor
-from services import DataExtractor
+from api.services.data_extractor import DataExtractor
+from api.services.model_repository import ModelRepository
 
 logger = logging.getLogger(__name__)
 app = FastAPI()
@@ -24,13 +25,10 @@ router = APIRouter(prefix="", tags=["predict"])
 PROJECT_ID = os.environ.get("PROJECT_ID", "gdelt-stock-sentiment-analysis")
 REGION = os.environ.get("GCP_REGION", "us-west1")
 BUCKET =    os.environ.get("BUCKET_NAME", "og-gdelt-main-data-dev")
-
+FIRESTORE_DB = os.environ.get("FIRESTORE_DB_NAME", "og-gdelt-dev-firestore-db")
 # endpoints
-MODEL_REGISTRY: Dict[str, Dict[str, str]] = {
-    "AMZN": {"endpoint_id": "REPLACE_WITH_AMZN_ENDPOINT_ID"},
-    "PFE": {"endpoint_id": "4435854317936705536"},
-    "2222.SR": {"endpoint_id": "2980065738389192704"},
-}
+firestore_client = firestore.Client(project=PROJECT_ID,database=FIRESTORE_DB)
+model_repository = ModelRepository(firestore_client)
 
 COMPANY_TO_TICKER = {
     "amazon": "AMZN",
@@ -74,13 +72,6 @@ def normalize_company_name(name: str) -> str:
 def resolve_ticker(company_name: str) -> Optional[str]:
     return COMPANY_TO_TICKER.get(normalize_company_name(company_name))
 
-
-def has_model(ticker: str) -> bool:
-    return ticker in MODEL_REGISTRY and "endpoint_id" in MODEL_REGISTRY[ticker]
-
-
-def get_endpoint_id(ticker: str) -> str:
-    return MODEL_REGISTRY[ticker]["endpoint_id"]
 
 
 def read_gcs_csv(gcs_path: str) -> pd.DataFrame:
@@ -159,7 +150,7 @@ def call_vertex_endpoint(endpoint_id: str, instance: Dict[str, Any]) -> Any:
     aiplatform.init(project=PROJECT_ID, location=REGION)
 
     endpoint = aiplatform.Endpoint(
-        endpoint_name=f"projects/{PROJECT_ID}/locations/{REGION}/endpoints/{endpoint_id}"
+        endpoint_name=endpoint_id
     )
 
     response = endpoint.predict(instances=[instance])
@@ -178,7 +169,7 @@ def health() -> Dict[str, str]:
 @router.get("/models/{company_name}")
 def model_status(company_name: str) -> Dict[str, Any]:
     ticker = resolve_ticker(company_name)
-
+    model_id = model_repository.get_model_id_by_company_name(company_name) if ticker else None
     if not ticker:
         return {
             "company_name": company_name,
@@ -190,8 +181,8 @@ def model_status(company_name: str) -> Dict[str, Any]:
     return {
         "company_name": company_name,
         "ticker": ticker,
-        "status": "ready" if has_model(ticker) else "training_needed",
-        "has_model": has_model(ticker),
+        "status": "ready" if model_id else "training_needed",
+        "has_model": bool(model_id),
     }
 
 
@@ -208,8 +199,8 @@ def predict(req: PredictRequest) -> PredictResponse:
         )
 
     # if no model / endpoint, return training_needed
-    endpoint_info = MODEL_REGISTRY.get(ticker)
-    endpoint_id = endpoint_info["endpoint_id"] if endpoint_info else None
+    endpoint_info = model_repository.get_model_id_by_company_name(ticker)
+    endpoint_id = endpoint_info if endpoint_info else None
 
     if not endpoint_id or "REPLACE" in endpoint_id:
         return PredictResponse(
