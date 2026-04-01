@@ -49,7 +49,7 @@ def train(ticker, bucket, input_path):
     ]
     
     results = {}
-    print(f"\n===== {ticker} ====")
+    print(f"\n===== {ticker} =====")
 
     sub_df = df[df["ticker"] == ticker].sort_values("event_date")
 
