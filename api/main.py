@@ -28,8 +28,8 @@ BUCKET =    os.environ.get("BUCKET_NAME", "og-gdelt-main-data-dev")
 # endpoints
 MODEL_REGISTRY: Dict[str, Dict[str, str]] = {
     "AMZN": {"endpoint_id": "REPLACE_WITH_AMZN_ENDPOINT_ID"},
-    "PFE": {"endpoint_id": "REPLACE_WITH_PFE_ENDPOINT_ID"},
-    "2222.SR": {"endpoint_id": "REPLACE_WITH_2222SR_ENDPOINT_ID"},
+    "PFE": {"endpoint_id": "4435854317936705536"},
+    "2222.SR": {"endpoint_id": "2980065738389192704"},
 }
 
 COMPANY_TO_TICKER = {
