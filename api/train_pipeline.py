@@ -36,17 +36,17 @@ PYTHON_MODULE = "trainer.train"
 # The pre-built sklearn container that Vertex AI uses to run the training
 CONTAINER_URI = "us-docker.pkg.dev/vertex-ai/training/sklearn-cpu.1-6:latest"
  
-# The pre-built sklearn container coped from See's last model deployment
+# The pre-built sklearn container for SERVING predictions (from previous config)
 SERVING_CONTAINER_URI = "us-docker.pkg.dev/vertex-ai/prediction/sklearn-cpu.1-6:latest"
  
 # Machine configuration
 MACHINE_TYPE = "e2-standard-4"  # For training
-SERVING_MACHINE_TYPE = "n1-standard-4"  # For inference (same as See's last deployment)
+SERVING_MACHINE_TYPE = "n1-standard-4"  # For inference (from previous endpoint config)
  
 # Service account
 SERVICE_ACCOUNT = f"{PROJECT_NUMBER}-compute@developer.gserviceaccount.com"
  
-# Deployment settings (also copied over from last endpoint deployment)
+# Deployment settings (from previous aramco endpoint config)
 MIN_REPLICAS = 1
 MAX_REPLICAS = 2
 TRAFFIC_SPLIT = {0: 100}  # 100% traffic to the deployed model
@@ -234,7 +234,7 @@ def get_or_create_endpoint(ticker: str) -> aiplatform.Endpoint:
     """
     Find an existing endpoint for this ticker, or create a new one.
     
-    Previous convention: one endpoint per company, named after
+    Previously used convention: one endpoint per company, named after
     the ticker (e.g., "aramco", "amzn", "tsla").
     
     Args:
@@ -266,7 +266,7 @@ def get_or_create_endpoint(ticker: str) -> aiplatform.Endpoint:
     logger.info(f"Creating new endpoint: {safe_name}")
     endpoint = aiplatform.Endpoint.create(
         display_name=safe_name,
-        # Standard access, no dedicated DNS (matching previous config config)
+        # Standard access, no dedicated DNS (matching previous config)
     )
  
     logger.info(f"Endpoint created: {endpoint.resource_name}")
@@ -287,7 +287,7 @@ def deploy_model_to_endpoint(
     THIS IS THE SLOW STEP (~15-20 minutes). Google is provisioning VMs
     to run the prediction server.
     
-    Settings match your previous deployment:
+    Settings match previous aramco deployment:
     - n1-standard-4 machine
     - Min 1 replica, Max 2 replicas
     - 100% traffic
