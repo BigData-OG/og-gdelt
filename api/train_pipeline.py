@@ -1,8 +1,11 @@
 """
-Training pipeline - submits Vertex AI custom training jobs.
+Training pipeline - submits Vertex AI custom training jobs and deploys models.
  
-This module handles submitting training jobs to Vertex AI using the
-existing training package (training_package.tar.gz) in GCS.
+This module handles:
+1. Submitting training jobs to Vertex AI
+2. Polling training job status until completion
+3. Registering trained models in the Model Registry
+4. Creating endpoints and deploying models for inference
 """
  
 from google.cloud.aiplatform_v1 import (
@@ -14,7 +17,9 @@ from google.cloud.aiplatform_v1 import (
     MachineSpec,
     DiskSpec,
 )
+from google.cloud import aiplatform
 import logging
+import time
  
 logger = logging.getLogger(__name__)
  
@@ -31,12 +36,25 @@ PYTHON_MODULE = "trainer.train"
 # The pre-built sklearn container that Vertex AI uses to run the training
 CONTAINER_URI = "us-docker.pkg.dev/vertex-ai/training/sklearn-cpu.1-6:latest"
  
+# The pre-built sklearn container coped from See's last model deployment
+SERVING_CONTAINER_URI = "us-docker.pkg.dev/vertex-ai/prediction/sklearn-cpu.1-6:latest"
+ 
 # Machine configuration
-MACHINE_TYPE = "e2-standard-4"
+MACHINE_TYPE = "e2-standard-4"  # For training
+SERVING_MACHINE_TYPE = "n1-standard-4"  # For inference (same as See's last deployment)
  
 # Service account
 SERVICE_ACCOUNT = f"{PROJECT_NUMBER}-compute@developer.gserviceaccount.com"
  
+# Deployment settings (also copied over from last endpoint deployment)
+MIN_REPLICAS = 1
+MAX_REPLICAS = 2
+TRAFFIC_SPLIT = {0: 100}  # 100% traffic to the deployed model
+ 
+ 
+# ============================================================
+# STEP 1: Submit Training Job (existing code, unchanged)
+# ============================================================
  
 def submit_training_job(
     ticker: str,
@@ -118,3 +136,272 @@ def submit_training_job(
     except Exception as e:
         logger.error(f"Failed to submit training job: {e}")
         raise
+ 
+ 
+# ============================================================
+# STEP 2: Wait for Training to Complete
+# ============================================================
+ 
+def wait_for_training_job(job_name: str, poll_interval: int = 60) -> str:
+    """
+    Poll the training job until it finishes.
+    
+    This runs in the background — the user doesn't see this happening.
+    It checks the job status every poll_interval seconds.
+    
+    Args:
+        job_name: Full resource name of the job 
+                  (e.g., "projects/.../locations/.../customJobs/12345")
+        poll_interval: How often to check status, in seconds (default 60)
+    
+    Returns:
+        Final job state as a string ("JOB_STATE_SUCCEEDED", "JOB_STATE_FAILED", etc.)
+    """
+    client = JobServiceClient(
+        client_options={"api_endpoint": f"{REGION}-aiplatform.googleapis.com"}
+    )
+ 
+    logger.info(f"Waiting for training job to complete: {job_name}")
+ 
+    while True:
+        job = client.get_custom_job(name=job_name)
+        state = job.state.name  # e.g., "JOB_STATE_SUCCEEDED"
+ 
+        logger.info(f"  Training job state: {state}")
+ 
+        if state in ("JOB_STATE_SUCCEEDED", "JOB_STATE_FAILED", "JOB_STATE_CANCELLED"):
+            return state
+ 
+        time.sleep(poll_interval)
+ 
+ 
+# ============================================================
+# STEP 3: Register Model in Vertex AI Model Registry
+# ============================================================
+ 
+def register_model(ticker: str) -> aiplatform.Model:
+    """
+    Upload/register the trained model to Vertex AI Model Registry.
+    
+    This tells Vertex AI: "here's a model file in GCS, and here's the
+    container that knows how to load and serve it."
+    
+    Args:
+        ticker: Stock ticker symbol
+    
+    Returns:
+        The registered Model object
+    """
+    safe_name = ticker.lower().replace(".", "-").replace("/", "-")
+    
+    # This matches the path pattern from your training output + save_model function
+    # train_results/vertex/model/{ticker}/ is the output_dir
+    # Inside that, save_model creates model/model.joblib
+    # So the artifact directory is: train_results/vertex/model/{ticker}/model/
+    artifact_uri = f"gs://{BUCKET_NAME}/train_results/vertex/model/{safe_name}/model/"
+    
+    model_display_name = f"{safe_name}-pred"
+ 
+    logger.info(f"Registering model: {model_display_name}")
+    logger.info(f"  Artifact URI: {artifact_uri}")
+    logger.info(f"  Serving container: {SERVING_CONTAINER_URI}")
+ 
+    # Initialize the high-level SDK (we use it here because model upload
+    # is simpler with it — no async issues like with training submission)
+    aiplatform.init(
+        project=PROJECT_ID,
+        location=REGION,
+        staging_bucket=f"gs://{BUCKET_NAME}",
+    )
+ 
+    model = aiplatform.Model.upload(
+        display_name=model_display_name,
+        artifact_uri=artifact_uri,
+        serving_container_image_uri=SERVING_CONTAINER_URI,
+    )
+ 
+    logger.info(f"Model registered successfully!")
+    logger.info(f"  Model resource name: {model.resource_name}")
+    
+    return model
+ 
+ 
+# ============================================================
+# STEP 4: Create or Get Endpoint
+# ============================================================
+ 
+def get_or_create_endpoint(ticker: str) -> aiplatform.Endpoint:
+    """
+    Find an existing endpoint for this ticker, or create a new one.
+    
+    Your teammate's convention: one endpoint per company, named after
+    the ticker (e.g., "aramco", "amzn", "tsla").
+    
+    Args:
+        ticker: Stock ticker symbol
+    
+    Returns:
+        The Endpoint object
+    """
+    safe_name = ticker.lower().replace(".", "-").replace("/", "-")
+ 
+    aiplatform.init(
+        project=PROJECT_ID,
+        location=REGION,
+        staging_bucket=f"gs://{BUCKET_NAME}",
+    )
+ 
+    # Check if an endpoint already exists for this ticker
+    endpoints = aiplatform.Endpoint.list(
+        filter=f'display_name="{safe_name}"',
+        order_by="create_time desc",
+    )
+ 
+    if endpoints:
+        endpoint = endpoints[0]
+        logger.info(f"Found existing endpoint: {endpoint.display_name} ({endpoint.resource_name})")
+        return endpoint
+ 
+    # No existing endpoint — create a new one
+    logger.info(f"Creating new endpoint: {safe_name}")
+    endpoint = aiplatform.Endpoint.create(
+        display_name=safe_name,
+        # Standard access, no dedicated DNS (matching your teammate's config)
+    )
+ 
+    logger.info(f"Endpoint created: {endpoint.resource_name}")
+    return endpoint
+ 
+ 
+# ============================================================
+# STEP 5: Deploy Model to Endpoint
+# ============================================================
+ 
+def deploy_model_to_endpoint(
+    model: aiplatform.Model,
+    endpoint: aiplatform.Endpoint,
+) -> None:
+    """
+    Deploy a registered model to an endpoint.
+    
+    THIS IS THE SLOW STEP (~15-20 minutes). Google is provisioning VMs
+    to run the prediction server.
+    
+    Settings match your teammate's aramco deployment:
+    - n1-standard-4 machine
+    - Min 1 replica, Max 2 replicas
+    - 100% traffic
+    - No GPU
+    - Access logging enabled
+    
+    Args:
+        model: The registered Model from step 3
+        endpoint: The Endpoint from step 4
+    """
+    logger.info(f"Deploying model {model.display_name} to endpoint {endpoint.display_name}")
+    logger.info(f"  Machine type: {SERVING_MACHINE_TYPE}")
+    logger.info(f"  Replicas: {MIN_REPLICAS}-{MAX_REPLICAS}")
+    logger.info("  This will take ~15-20 minutes...")
+ 
+    model.deploy(
+        endpoint=endpoint,
+        deployed_model_display_name=model.display_name,
+        machine_type=SERVING_MACHINE_TYPE,
+        min_replica_count=MIN_REPLICAS,
+        max_replica_count=MAX_REPLICAS,
+        traffic_split={"0": 100},
+        enable_access_logging=True,
+    )
+ 
+    logger.info(f"Model deployed successfully!")
+    logger.info(f"  Endpoint ID: {endpoint.resource_name}")
+ 
+ 
+# ============================================================
+# FULL BACKGROUND PIPELINE: Wait → Register → Deploy
+# ============================================================
+ 
+# This dict tracks the status of all jobs so the /train/status endpoint can report it
+job_tracker = {}
+ 
+def train_and_deploy_background(job_name: str, ticker: str):
+    """
+    Background task that runs after /train returns to the user.
+    
+    1. Polls the training job until it finishes
+    2. Registers the model in Model Registry
+    3. Creates/finds an endpoint
+    4. Deploys the model to the endpoint
+    
+    The user can check progress via /train/status/{ticker}
+    
+    Args:
+        job_name: Full Vertex AI job resource name
+        ticker: Stock ticker symbol
+    """
+    safe_name = ticker.lower().replace(".", "-").replace("/", "-")
+ 
+    try:
+        # --- Phase 1: Wait for training ---
+        job_tracker[safe_name] = {
+            "status": "training",
+            "message": "Training job is running on Vertex AI...",
+            "ticker": ticker.upper(),
+        }
+ 
+        final_state = wait_for_training_job(job_name, poll_interval=60)
+ 
+        if final_state != "JOB_STATE_SUCCEEDED":
+            job_tracker[safe_name] = {
+                "status": "failed",
+                "message": f"Training job failed with state: {final_state}",
+                "ticker": ticker.upper(),
+            }
+            logger.error(f"Training failed for {ticker}: {final_state}")
+            return
+ 
+        # --- Phase 2: Register model ---
+        job_tracker[safe_name] = {
+            "status": "registering_model",
+            "message": "Training complete! Registering model in Vertex AI Model Registry...",
+            "ticker": ticker.upper(),
+        }
+ 
+        model = register_model(ticker)
+ 
+        # --- Phase 3: Create/find endpoint ---
+        job_tracker[safe_name] = {
+            "status": "creating_endpoint",
+            "message": "Model registered! Creating prediction endpoint...",
+            "ticker": ticker.upper(),
+        }
+ 
+        endpoint = get_or_create_endpoint(ticker)
+ 
+        # --- Phase 4: Deploy model ---
+        job_tracker[safe_name] = {
+            "status": "deploying",
+            "message": "Deploying model to endpoint (this takes ~15-20 min)...",
+            "ticker": ticker.upper(),
+        }
+ 
+        deploy_model_to_endpoint(model, endpoint)
+ 
+        # --- Done! ---
+        job_tracker[safe_name] = {
+            "status": "deployed",
+            "message": f"Model for {ticker.upper()} is live and ready for predictions!",
+            "ticker": ticker.upper(),
+            "endpoint_id": endpoint.resource_name,
+            "model_id": model.resource_name,
+        }
+ 
+        logger.info(f"Full pipeline complete for {ticker}!")
+ 
+    except Exception as e:
+        job_tracker[safe_name] = {
+            "status": "error",
+            "message": f"Pipeline error: {str(e)}",
+            "ticker": ticker.upper(),
+        }
+        logger.error(f"Background pipeline failed for {ticker}: {e}")
