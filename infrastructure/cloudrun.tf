@@ -24,6 +24,22 @@ resource "google_cloud_run_v2_service" "gdelt_api" {
     health_check_disabled = true
     containers {
       image = data.google_artifact_registry_docker_image.gdelt_api.self_link
+      env {
+        name  = "FIRESTORE_DB_NAME"
+        value = google_firestore_database.ml_models.name
+      }
+      env {
+        name  = "FIRESTORE_COLLECTION_NAME"
+        value = "gdeltModels"
+      }
+      env {
+        name = "GCP_REGION"
+        value = var.gcp_region
+      }
+      env {
+        name = "PROJECT_ID"
+        value = var.project_id
+      }
       resources {
         cpu_idle = true
         limits = {
