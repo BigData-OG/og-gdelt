@@ -189,6 +189,60 @@ def model_status(company_name: str) -> Dict[str, Any]:
     }
 
 
+# @router.post("/predict", response_model=PredictResponse)
+# def predict(req: PredictRequest) -> PredictResponse:
+#     company_name = req.company_name.strip()
+#     ticker = resolve_ticker(company_name)
+
+#     if not ticker:
+#         raise HTTPException(
+#             status_code=400,
+#             detail=f"Unsupported company: {company_name}. "
+#                    f"Currently supported: {list(COMPANY_TO_TICKER.keys())}"
+#         )
+
+#     # run DataExtractor，take processed path
+#     try:
+#         extractor = DataExtractor()
+#         result = extractor.extract_company_data(company_name=company_name, ticker=ticker, years=5)
+#         training_path = result["paths"]["processed"]
+#     except Exception as e:
+#         logger.exception("Data extraction failed")
+#         raise HTTPException(status_code=500, detail=f"Data extraction failed: {str(e)}")
+
+#     # if no model，then return training_needed
+#     if not has_model(ticker):
+#         return PredictResponse(
+#             company_name=company_name,
+#             ticker=ticker,
+#             status="training_needed",
+#             processed_path=training_path,
+#             message="Processed data is ready, but no deployed Vertex endpoint exists for this ticker yet."
+#         )
+
+#     # read processed data，only take latest row，create inference instance
+#     try:
+#         instance, latest_date = build_latest_instance_from_processed(training_path)
+#     except Exception as e:
+#         logger.exception("Failed to build inference instance")
+#         raise HTTPException(status_code=500, detail=f"Failed to build inference input: {str(e)}")
+
+#     # call vertex AI endpoint
+#     try:
+#         prediction = call_vertex_endpoint(get_endpoint_id(ticker), instance)
+#     except Exception as e:
+#         logger.exception("Vertex inference failed")
+#         raise HTTPException(status_code=500, detail=f"Vertex inference failed: {str(e)}")
+
+#     return PredictResponse(
+#         company_name=company_name,
+#         ticker=ticker,
+#         status="predicted",
+#         prediction=prediction,
+#         processed_path=training_path,
+#         latest_event_date=latest_date,
+#         features_used=instance,
+#     )
 @router.post("/predict", response_model=PredictResponse)
 def predict(req: PredictRequest) -> PredictResponse:
     company_name = req.company_name.strip()
@@ -201,47 +255,86 @@ def predict(req: PredictRequest) -> PredictResponse:
                    f"Currently supported: {list(COMPANY_TO_TICKER.keys())}"
         )
 
-    # run DataExtractor，take processed path
-    try:
-        extractor = DataExtractor()
-        result = extractor.extract_company_data(company_name=company_name, ticker=ticker, years=5)
-        training_path = result["paths"]["processed"]
-    except Exception as e:
-        logger.exception("Data extraction failed")
-        raise HTTPException(status_code=500, detail=f"Data extraction failed: {str(e)}")
+    # if no model / endpoint, return training_needed
+    endpoint_info = MODEL_REGISTRY.get(ticker)
+    endpoint_id = endpoint_info["endpoint_id"] if endpoint_info else None
 
-    # if no model，then return training_needed
-    if not has_model(ticker):
+    if not endpoint_id or "REPLACE" in endpoint_id:
         return PredictResponse(
             company_name=company_name,
             ticker=ticker,
             status="training_needed",
-            processed_path=training_path,
-            message="Processed data is ready, but no deployed Vertex endpoint exists for this ticker yet."
+            message="No deployed Vertex endpoint exists for this ticker yet."
         )
 
-    # read processed data，only take latest row，create inference instance
+    # get one latest feature row for inference
     try:
-        instance, latest_date = build_latest_instance_from_processed(training_path)
+        extractor = DataExtractor()
+        latest_features = extractor.extract_latest_features(
+            company_name=company_name,
+            ticker=ticker
+        )
+    except Exception as e:
+        logger.exception("Latest feature extraction failed")
+        raise HTTPException(
+            status_code=500,
+            detail=f"Latest feature extraction failed: {str(e)}"
+        )
+
+    required_cols = [
+        "daily_exposure_count",
+        "daily_avg_tone",
+        "Open",
+        "High",
+        "Low",
+        "Close",
+        "Volume",
+        "daily_return_pct",
+        "day_of_week",
+    ]
+
+    missing = [c for c in required_cols if c not in latest_features]
+    if missing:
+        raise HTTPException(
+            status_code=500,
+            detail=f"Missing required inference features: {missing}"
+        )
+
+    try:
+        instance = {
+            "daily_exposure_count": float(latest_features["daily_exposure_count"]),
+            "daily_avg_tone": float(latest_features["daily_avg_tone"]),
+            "Open": float(latest_features["Open"]),
+            "High": float(latest_features["High"]),
+            "Low": float(latest_features["Low"]),
+            "Close": float(latest_features["Close"]),
+            "Volume": float(latest_features["Volume"]),
+            "daily_return_pct": float(latest_features["daily_return_pct"]),
+            "day_of_week": int(latest_features["day_of_week"]),
+        }
+        latest_date = str(latest_features.get("event_date"))
     except Exception as e:
         logger.exception("Failed to build inference instance")
-        raise HTTPException(status_code=500, detail=f"Failed to build inference input: {str(e)}")
+        raise HTTPException(
+            status_code=500,
+            detail=f"Failed to build inference input: {str(e)}"
+        )
 
-    # call vertex AI endpoint
     try:
-        prediction = call_vertex_endpoint(get_endpoint_id(ticker), instance)
+        prediction = call_vertex_endpoint(endpoint_id, instance)
     except Exception as e:
         logger.exception("Vertex inference failed")
-        raise HTTPException(status_code=500, detail=f"Vertex inference failed: {str(e)}")
+        raise HTTPException(
+            status_code=500,
+            detail=f"Vertex inference failed: {str(e)}"
+        )
 
     return PredictResponse(
         company_name=company_name,
         ticker=ticker,
         status="predicted",
         prediction=prediction,
-        processed_path=training_path,
         latest_event_date=latest_date,
         features_used=instance,
     )
-
 app.include_router(router)
