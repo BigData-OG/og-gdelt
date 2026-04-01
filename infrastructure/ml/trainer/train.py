@@ -91,7 +91,7 @@ def train(ticker, bucket, input_path):
         "rf_price_sentiment_mae": rf_sent_mae
     }
     
-    print("\n===== FINAL RESULTS =====")
+    print("\n===== FINAL RESULTS ======")
     print(results)
 
     save_model(rf_sent, ticker, project_id, output_path)

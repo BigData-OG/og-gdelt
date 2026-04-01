@@ -53,6 +53,7 @@ FEATURE_COLUMNS = [
 
 class PredictRequest(BaseModel):
     company_name: str = Field(..., description="Company name, e.g. Amazon")
+    ticker: str = Field(..., description="Stock ticker, e.g. AMZN")
 
 
 class PredictResponse(BaseModel):
@@ -62,7 +63,7 @@ class PredictResponse(BaseModel):
     prediction: Optional[Any] = None
     processed_path: Optional[str] = None
     latest_event_date: Optional[str] = None
-    features_used: Optional[Dict[str, Any]] = None
+    features_used: Optional[list] = None
     message: Optional[str] = None
 
 
@@ -197,7 +198,7 @@ def model_status(company_name: str) -> Dict[str, Any]:
 @router.post("/predict", response_model=PredictResponse)
 def predict(req: PredictRequest) -> PredictResponse:
     company_name = req.company_name.strip()
-    ticker = resolve_ticker(company_name)
+    ticker = req.ticker.strip()
 
     if not ticker:
         raise HTTPException(
@@ -264,7 +265,7 @@ def predict(req: PredictRequest) -> PredictResponse:
             "daily_return_pct": float(latest_features["daily_return_pct"]),
             "day_of_week": int(latest_features["day_of_week"]),
         }
-        instance = [[instance[col] for col in FEATURE_COLUMNS]]
+        instance = [instance[col] for col in FEATURE_COLUMNS]
         latest_date = str(latest_data.get("event_date"))
     except Exception as e:
         logger.exception("Failed to build inference instance")
