@@ -8,10 +8,11 @@ import os
 from fastapi import APIRouter, HTTPException, BackgroundTasks
 from pydantic import BaseModel
 from typing import Optional
-from google.cloud import storage as gcs_storage
+from google.cloud import storage as gcs_storage, firestore
 
 import logging
  
+from api.services.model_repository import ModelRepository
 from api.train_pipeline import (
     submit_training_job,
     train_and_deploy_background,
@@ -51,6 +52,10 @@ class TrainResponse(BaseModel):
     output_dir: str
     extraction_summary: Optional[dict] = None
     deployment: Optional[str] = None
+
+class ModelAlreadyExistResponse(BaseModel):
+    status: str
+    message: str
  
  
 # --- Helper functions ---
@@ -97,7 +102,15 @@ async def train_model(request: TrainRequest, background_tasks: BackgroundTasks):
     """
     ticker = request.ticker.upper()
     company_name = request.company_name
- 
+    firestore_client = firestore.Client(project=PROJECT_ID,database=os.environ.get("FIRESTORE_DB_NAME", "og-gdelt-dev-firestore-db"))
+    repo = ModelRepository(firestore_client)
+    model_endpoint = repo.get_model_id_by_company_name(company_name)
+    if model_endpoint is not None:
+        return ModelAlreadyExistResponse(
+            status="model_exists",
+            message=f"A model for '{company_name}' already exists at endpoint '{model_endpoint}'. "
+                    f"Please delete the existing model before training a new one."
+        )
     logger.info(f"=== Training pipeline started for {company_name} ({ticker}) ===")
  
     extraction_summary = None
