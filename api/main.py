@@ -216,7 +216,7 @@ def predict(req: PredictRequest) -> PredictResponse:
     # get one latest feature row for inference
     try:
         extractor = DataExtractor()
-        latest_features = extractor.extract_latest_features(
+        latest_features = extractor.get_latest_features(
             company_name=company_name,
             ticker=ticker
         )
@@ -258,6 +258,7 @@ def predict(req: PredictRequest) -> PredictResponse:
             "daily_return_pct": float(latest_features["daily_return_pct"]),
             "day_of_week": int(latest_features["day_of_week"]),
         }
+        instance = [[instance[col] for col in FEATURE_COLUMNS]]
         latest_date = str(latest_features.get("event_date"))
     except Exception as e:
         logger.exception("Failed to build inference instance")
