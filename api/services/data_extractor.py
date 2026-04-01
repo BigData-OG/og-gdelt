@@ -13,10 +13,10 @@ class DataExtractor:
     Processes and combines them into training-ready dataset.
     """
     
-    def __init__(self):
-        self.bq_client = bigquery.Client(project='gdelt-stock-sentiment-analysis')
-        self.gcs_client = storage.Client(project='gdelt-stock-sentiment-analysis')
-        self.bucket_name = 'og-gdelt-main-data-dev'
+    def __init__(self, bucket, project_id):
+        self.bq_client = bigquery.Client(project=project_id)
+        self.gcs_client = storage.Client(project=project_id)
+        self.bucket_name = bucket
         self.sql_dir = Path(__file__).parent.parent.parent / 'sql'
     
     # Larry can call this

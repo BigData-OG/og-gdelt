@@ -40,6 +40,10 @@ resource "google_cloud_run_v2_service" "gdelt_api" {
         name = "PROJECT_ID"
         value = var.project_id
       }
+      env {
+        name = "BUCKET_NAME"
+        value = local.main_data_bucket_name
+      }
       resources {
         cpu_idle = true
         limits = {
