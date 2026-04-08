@@ -36,13 +36,7 @@ Predict stock price given company name and ticker
 POST /predict
 ```
 
-**Example via cURL:**
-```bash
-curl -X POST "http://localhost:8000/predict" \
-     -H "accept: application/json"
-```
-
-**Example Response:**
+**Example Request Body:**
 ```json
 {
   "ticker": "GOOGL",
@@ -58,13 +52,8 @@ Train a model given company name and ticker
 POST /train
 ```
 
-**Example via cURL:**
-```bash
-curl -X POST "http://localhost:8000/predict" \
-     -H "accept: application/json"
-```
 
-**Example Response:**
+**Example Request Body:**
 ```json
 {
   "ticker": "GOOGL",
