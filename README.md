@@ -28,17 +28,17 @@ The API provides endpoints to interact with the system and retrieve sentiment da
 
 ### Example Endpoints
 
-#### 1. Retrieve Sentiment for a Specific Stock
-Get the current sentiment score and analysis for a given stock ticker based on recent GDELT data.
+#### 1. Infer Stock Price
+Predict stock price given company name and ticker
 
 **Request:**
 ```http
-GET /sentiment/{ticker}
+POST /predict
 ```
 
 **Example via cURL:**
 ```bash
-curl -X GET "http://localhost:8000/api/v1/sentiment/GOOGL" \
+curl -X POST "http://localhost:8000/predict" \
      -H "accept: application/json"
 ```
 
@@ -46,32 +46,28 @@ curl -X GET "http://localhost:8000/api/v1/sentiment/GOOGL" \
 ```json
 {
   "ticker": "GOOGL",
-  "sentiment_score": 0.68,
-  "confidence": 0.85,
-  "last_analyzed": "2024-05-15T14:30:00Z"
+  "company": "Google"
 }
 ```
 
-#### 2. List Available Models
-Retrieve a list of the machine learning models currently deployed and available on Vertex AI.
+#### 2. Train a regression model given company name and ticker
+Train a model given company name and ticker
 
 **Request:**
 ```http
-GET /models
+POST /train
 ```
 
 **Example via cURL:**
 ```bash
-curl -X GET "http://localhost:8000/api/v1/models" \
+curl -X POST "http://localhost:8000/predict" \
      -H "accept: application/json"
 ```
 
 **Example Response:**
 ```json
 {
-  "models": {
-    "1234567890": "gdelt_sentiment_v1",
-    "0987654321": "gdelt_sentiment_v2_beta"
-  }
+  "ticker": "GOOGL",
+  "company": "Google"
 }
 ```
