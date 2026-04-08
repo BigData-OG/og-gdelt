@@ -21,6 +21,8 @@ The architecture consists of several key components working together to ingest, 
 
 The API provides endpoints to interact with the system and retrieve sentiment data. Below are examples of how to interact with the API.
 
+If you need access to the deployed API, please let us know via email.
+
 *(Note: Update the base URL to your deployed environment's URL)*
 
 ### Base URL
