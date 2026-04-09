@@ -2,20 +2,14 @@ import pandas as pd
 from sklearn.ensemble import RandomForestRegressor
 from sklearn.metrics import mean_absolute_error
 import joblib
-import os
 
 
-def train_local_model(ticker: str):
-    print(f'Starting local training for {ticker}')
+def train_local_model(ticker: str, data_path: str):
+    print(f'Starting local training for {ticker} using data from {data_path}')
 
     # Look for the file locally inside the container
-    # TODO - change later for making it dynamic - hardcoded to the cleaned data
-    file_path = f"joined_data_combined_data_clean.csv"
 
-    if not os.path.exists(file_path):
-        raise FileNotFoundError(f"Data file {file_path} not found. Did you COPY it in the Dockerfile?")
-
-    df = pd.read_csv(file_path)
+    df = pd.read_csv(data_path)
     df = df.dropna()
 
     price_features = ["Open", "High", "Low", "Close", "Volume", "daily_return_pct", "day_of_week"]
@@ -25,7 +19,7 @@ def train_local_model(ticker: str):
     sub_df = df[df["ticker"] == ticker].sort_values("event_date")
 
     if sub_df.empty:
-        raise ValueError(f"No data found for {ticker} in {file_path}.")
+        raise ValueError(f"No data found for {ticker} in {data_path}.")
 
     y = sub_df["next_day_close"]
     split = int(len(sub_df) * 0.8)
@@ -47,13 +41,12 @@ def train_local_model(ticker: str):
     # y_train_heavy = pd.concat([y_train] * 200, ignore_index=True)
     # rf_sent.fit(X_train_heavy, y_train_heavy)
 
-
     # Calculate MAE for sanity checking
     y_rf_sent_pred = rf_sent.predict(X_test_s)
     mae = mean_absolute_error(y_test, y_rf_sent_pred)
 
     # Save the model locally (this mimics deploying a new model)
-    model_filename = "train_results_vertex_model_amazon_model_model.joblib"  # Overwriting the existing file for simplicity
+    model_filename = f"{ticker}_model.joblib"
     joblib.dump(rf_sent, model_filename)
 
     return {"status": "success", "ticker": ticker, "mae": mae}

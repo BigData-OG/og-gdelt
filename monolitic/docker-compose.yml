@@ -7,5 +7,7 @@ services:
     volumes:
       # Maps your local Google Cloud credentials to the container so BigQuery works
       - ~/.config/gcloud:/root/.config/gcloud:ro
+      - ../api/sql:/sql
     environment:
       - GOOGLE_APPLICATION_CREDENTIALS=/root/.config/gcloud/application_default_credentials.json
+      - GOOGLE_CLOUD_PROJECT=gdelt-stock-sentiment-analysis

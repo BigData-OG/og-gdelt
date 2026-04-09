@@ -13,7 +13,8 @@ COPY main.py .
 COPY train_routes.py .
 COPY train.py .
 COPY train_results_vertex_model_amazon_model_model.joblib .
-COPY joined_data_combined_data_clean.csv .
+COPY data_extractor.py .
+COPY train_pipeline.py .
 
 # Expose the port FastAPI runs on
 EXPOSE 8000
