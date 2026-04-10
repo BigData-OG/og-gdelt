@@ -18,7 +18,7 @@ class DataExtractor:
         self.bq_client = bigquery.Client(project=project_id)
         self.gcs_client = storage.Client(project=project_id)
         self.bucket_name = bucket
-        self.sql_dir = Path(__file__).parent.parent / 'sql'
+        self.sql_dir = Path(__file__).parent / 'sql'
 
     # Larry can call this
     def extract_company_data(self, company_name: str, ticker: str, years: int = 5) -> dict:
